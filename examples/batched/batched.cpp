@@ -55,8 +55,9 @@ int main(int argc, char ** argv) {
 
     // tokenize the prompt
 
-    std::vector<llama_token> tokens_list;
-    tokens_list = ::llama_tokenize(model, params.prompt, true);
+    std::vector<llama_token> tokens_list = {64790, 64792};
+    std::vector<llama_token> content_list = ::llama_tokenize(model, params.prompt, false);
+    tokens_list.insert(tokens_list.end(), content_list.begin(), content_list.end());
     const int n_kv_req = tokens_list.size() + (n_len - tokens_list.size())*n_parallel;
 
     // initialize the context
@@ -66,9 +67,11 @@ int main(int argc, char ** argv) {
     ctx_params.seed  = 1234;
     ctx_params.n_ctx = n_kv_req;
     ctx_params.n_batch = std::max(n_len, n_parallel);
-    ctx_params.n_threads = params.n_threads;
-    ctx_params.n_threads_batch = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
+    // ctx_params.n_threads = params.n_threads;
+    // ctx_params.n_threads_batch = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
 
+    ctx_params.n_threads = 1;
+    ctx_params.n_threads_batch = 1;
     llama_context * ctx = llama_new_context_with_model(model, ctx_params);
 
     if (ctx == NULL) {

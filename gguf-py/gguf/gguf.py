@@ -80,6 +80,7 @@ class MODEL_ARCH(IntEnum):
     LLAMA         : int = auto()
     FALCON        : int = auto()
     BAICHUAN      : int = auto()
+    CHATGLM      : int = auto()
     GPT2          : int = auto()
     GPTJ          : int = auto()
     GPTNEOX       : int = auto()
@@ -117,6 +118,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
     MODEL_ARCH.LLAMA:          "llama",
     MODEL_ARCH.FALCON:         "falcon",
     MODEL_ARCH.BAICHUAN:       "baichuan",
+    MODEL_ARCH.CHATGLM:        "chatglm",
     MODEL_ARCH.GPT2:           "gpt2",
     MODEL_ARCH.GPTJ:           "gptj",
     MODEL_ARCH.GPTNEOX:        "gptneox",
@@ -205,6 +207,17 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.FFN_DOWN,
         MODEL_TENSOR.FFN_UP,
     ],
+    MODEL_ARCH.CHATGLM: [
+        MODEL_TENSOR.TOKEN_EMBD,
+        MODEL_TENSOR.OUTPUT_NORM,
+        MODEL_TENSOR.OUTPUT,
+        MODEL_TENSOR.ATTN_NORM,
+        MODEL_TENSOR.ATTN_NORM_2,
+        MODEL_TENSOR.ATTN_QKV,
+        MODEL_TENSOR.ATTN_OUT,
+        MODEL_TENSOR.FFN_DOWN,
+        MODEL_TENSOR.FFN_UP
+    ],
     MODEL_ARCH.STARCODER: [
         MODEL_TENSOR.TOKEN_EMBD,
         MODEL_TENSOR.POS_EMBD,
@@ -278,7 +291,6 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
         MODEL_TENSOR.ATTN_V,
         MODEL_TENSOR.ATTN_OUT,
         MODEL_TENSOR.FFN_NORM,
-        MODEL_TENSOR.FFN_GATE,
         MODEL_TENSOR.FFN_DOWN,
         MODEL_TENSOR.FFN_UP,
     ],
@@ -315,6 +327,7 @@ class TensorNameMap:
             "tok_embeddings",                           # llama-pth
             "embeddings.word_embeddings",               # bert
             "language_model.embedding.word_embeddings", # persimmon
+            "transformer.embedding.word_embeddings",    # chatglm
         ),
 
         # Token type embeddings
@@ -334,6 +347,7 @@ class TensorNameMap:
             "lm_head",                  # gpt2 mpt falcon llama-hf baichuan
             "output",                   # llama-pth
             "word_embeddings_for_head", # persimmon
+            "transformer.output_layer"
         ),
 
         # Output norm
@@ -346,6 +360,7 @@ class TensorNameMap:
             "transformer.norm_f",                     # mpt
             "ln_f",                                   # refact
             "language_model.encoder.final_layernorm", # persimmon
+            "transformer.encoder.final_layernorm"
         ),
 
         # Rope frequencies
@@ -366,11 +381,13 @@ class TensorNameMap:
             "layers.{bid}.attention_norm",                         # llama-pth
             "encoder.layer.{bid}.attention.output.LayerNorm",      # bert
             "language_model.encoder.layers.{bid}.input_layernorm", # persimmon
+            "transformer.encoder.layers.{bid}.input_layernorm"     # chatglm
         ),
 
         # Attention norm 2
         MODEL_TENSOR.ATTN_NORM_2: (
             "transformer.h.{bid}.ln_attn", # falcon40b
+            "transformer.encoder.layers.{bid}.post_attention_layernorm" # chatglm
         ),
 
         # Attention query-key-value
@@ -380,6 +397,7 @@ class TensorNameMap:
             "transformer.blocks.{bid}.attn.Wqkv",                                 # mpt
             "transformer.h.{bid}.self_attention.query_key_value",                 # falcon
             "language_model.encoder.layers.{bid}.self_attention.query_key_value", # persimmon
+            "transformer.encoder.layers.{bid}.self_attention.query_key_value"     # chatglm
         ),
 
         # Attention query
@@ -416,7 +434,8 @@ class TensorNameMap:
             "layers.{bid}.attention.wo",                               # llama-pth
             "encoder.layer.{bid}.attention.output.dense",              # bert
             "transformer.h.{bid}.attn.out_proj",                       # gpt-j
-            "language_model.encoder.layers.{bid}.self_attention.dense" # persimmon
+            "language_model.encoder.layers.{bid}.self_attention.dense", # persimmon
+            "transformer.encoder.layers.{bid}.self_attention.dense"    # chatglm
         ),
 
         # Rotary embeddings
@@ -447,6 +466,7 @@ class TensorNameMap:
             "encoder.layer.{bid}.intermediate.dense",                # bert
             "transformer.h.{bid}.mlp.fc_in",                         # gpt-j
             "language_model.encoder.layers.{bid}.mlp.dense_h_to_4h", # persimmon
+            "transformer.encoder.layers.{bid}.mlp.dense_h_to_4h"     # chatglm
         ),
 
         # Feed-forward gate
@@ -466,6 +486,7 @@ class TensorNameMap:
             "encoder.layer.{bid}.output.dense",                      # bert
             "transformer.h.{bid}.mlp.fc_out",                        # gpt-j
             "language_model.encoder.layers.{bid}.mlp.dense_4h_to_h", # persimmon
+            "transformer.encoder.layers.{bid}.mlp.dense_4h_to_h"     # chatglm
         ),
 
         MODEL_TENSOR.ATTN_Q_NORM: (

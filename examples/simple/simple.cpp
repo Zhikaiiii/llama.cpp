@@ -27,7 +27,7 @@ int main(int argc, char ** argv) {
     }
 
     // total length of the sequence including the prompt
-    const int n_len = 32;
+    const int n_len = 128;
 
     // init LLM
 
@@ -53,6 +53,7 @@ int main(int argc, char ** argv) {
     ctx_params.seed  = 1234;
     ctx_params.n_ctx = 2048;
     ctx_params.n_threads = params.n_threads;
+    // ctx_params.n_threads = 1;
     ctx_params.n_threads_batch = params.n_threads_batch == -1 ? params.n_threads : params.n_threads_batch;
 
     llama_context * ctx = llama_new_context_with_model(model, ctx_params);
@@ -64,8 +65,11 @@ int main(int argc, char ** argv) {
 
     // tokenize the prompt
 
-    std::vector<llama_token> tokens_list;
-    tokens_list = ::llama_tokenize(ctx, params.prompt, true);
+    std::vector<llama_token> tokens_list = {64790, 64792};
+    std::vector<llama_token> content_list;
+    content_list = ::llama_tokenize(ctx, params.prompt, false);
+
+    tokens_list.insert(tokens_list.end(), content_list.begin(), content_list.end());
 
     const int n_ctx    = llama_n_ctx(ctx);
     const int n_kv_req = tokens_list.size() + (n_len - tokens_list.size());
@@ -95,6 +99,7 @@ int main(int argc, char ** argv) {
     llama_batch batch = llama_batch_init(512, 0);
 
     // evaluate the initial prompt
+    // tokens_list = {64790, 64792, 13755, 552, 1462, 323};
     batch.n_tokens = tokens_list.size();
 
     for (int32_t i = 0; i < batch.n_tokens; i++) {

@@ -13336,6 +13336,7 @@ static void ggml_compute_forward_rope_f32(
 
     const bool is_neox = mode & 2;
     const bool is_glm  = mode & 4;
+    const bool is_chatglm2 = mode & 8;
 
     const int32_t * pos = (const int32_t *) src1->data;
 
@@ -13373,6 +13374,24 @@ static void ggml_compute_forward_rope_f32(
                         dst_data[n_dims]     = x2*cos_block_theta - x3*sin_block_theta;
                         dst_data[n_dims/2*3] = x2*sin_block_theta + x3*cos_block_theta;
                     }
+                } else if (is_chatglm2){
+                    for (int64_t ic = 0; ic < n_dims; ic += 2) {
+                        const float cos_theta = cosf(theta);
+                        const float sin_theta = sinf(theta);
+
+                        theta *= theta_scale;
+
+                        const int64_t i0 = ic;
+
+                        const float * const src = (float *)((char *) src0->data + i3*nb03 + i2*nb02 + i1*nb01 + i0*nb00);
+                                float * dst_data  = (float *)((char *)  dst->data + i3*nb3  + i2*nb2  + i1*nb1  + i0*nb0);
+
+                        const float x0 = src[0];
+                        const float x1 = src[1];
+
+                        dst_data[0]  = x0*cos_theta - x1*sin_theta;
+                        dst_data[1] = x0*sin_theta + x1*cos_theta;
+                    }
                 } else if (!is_neox) {
                     for (int64_t i0 = 0; i0 < ne0; i0 += 2) {
                         const float cos_theta = cosf(theta);
@@ -13392,7 +13411,7 @@ static void ggml_compute_forward_rope_f32(
                         dst_data[0] = x0*cos_theta*zeta - x1*sin_theta*zeta;
                         dst_data[1] = x0*sin_theta*zeta + x1*cos_theta*zeta;
                     }
-                } else {
+                }else {
                     // TODO: this might be wrong for ne0 != n_dims - need double check
                     // ref:  https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt_neox/modeling_gpt_neox.py#LL251C1-L294C28
                     for (int64_t ib = 0; ib < ne0/n_dims; ++ib) {
