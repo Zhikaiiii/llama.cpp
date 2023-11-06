@@ -3645,12 +3645,12 @@ static struct ggml_cgraph * llm_build_chatglm(
     const int64_t n_embd      = hparams.n_embd;
     const int64_t n_layer     = hparams.n_layer;
     const int64_t n_ctx       = cparams.n_ctx;
-    const int64_t n_head      = hparams.n_head;
-    const int64_t n_head_kv   = hparams.n_head_kv;
-    const int64_t n_embd_head = hparams.n_embd_head();
-    const int64_t n_embd_gqa  = hparams.n_embd_gqa();
-    const int64_t n_rot       = hparams.n_rot;
-    const int64_t n_ff        = hparams.n_ff;
+    const int64_t n_head      = hparams.n_head; // Query 的head数目
+    const int64_t n_head_kv   = hparams.n_head_kv; // key, value的head数目
+    const int64_t n_embd_head = hparams.n_embd_head(); // 每个head的数目
+    const int64_t n_embd_gqa  = hparams.n_embd_gqa(); // mqa的key value的总维数
+    const int64_t n_rot       = hparams.n_rot; // rotery embedding的维数
+    const int64_t n_ff        = hparams.n_ff; // ffn的维数
 
     const float freq_base    = cparams.rope_freq_base;
     const float freq_scale   = cparams.rope_freq_scale;
@@ -3838,46 +3838,65 @@ static struct ggml_cgraph * llm_build_chatglm(
 
             // TODO: these 2 ggml_conts are technically not needed, but we add them until CUDA support for
             //       non-contiguous views is added for the rope operator
-            struct ggml_tensor * tmpq = ggml_cont(ctx0, ggml_view_3d(
-                ctx0, cur, n_embd_head, n_head, n_tokens,
-                wsize * n_embd_head,
-                wsize * n_embd_head * (n_head + 2 * n_head_kv),
-                0));
-            offload_func_kq(tmpq);
+            // struct ggml_tensor * tmpq = ggml_cont(ctx0, ggml_view_3d(
+            //     ctx0, cur, n_embd_head, n_head, n_tokens,
+            //     wsize * n_embd_head,
+            //     wsize * n_embd_head * (n_head + 2 * n_head_kv),
+            //     0));
+            // offload_func_kq(tmpq);
 
-            struct ggml_tensor * tmpk = ggml_cont(ctx0, ggml_view_3d(
-                ctx0, cur, n_embd_head, n_head_kv, n_tokens,
-                wsize * n_embd_head,
-                wsize * n_embd_head * (n_head + 2 * n_head_kv),
-                wsize * n_embd_head *  n_head));
-            offload_func_kq(tmpk);
+            // struct ggml_tensor * tmpk = ggml_cont(ctx0, ggml_view_3d(
+            //     ctx0, cur, n_embd_head, n_head_kv, n_tokens,
+            //     wsize * n_embd_head,
+            //     wsize * n_embd_head * (n_head + 2 * n_head_kv),
+            //     wsize * n_embd_head *  n_head));
+            // offload_func_kq(tmpk);
 
-            struct ggml_tensor * tmpv = ggml_cont(ctx0, ggml_view_3d(
-                ctx0, cur, n_embd_head, n_head_kv, n_tokens,
-                wsize * n_embd_head,
-                wsize * n_embd_head * (n_head + 2 * n_head_kv),
-                wsize * n_embd_head * (n_head +     n_head_kv)));
-            offload_func_v(tmpv);
-
-
-
-            // struct ggml_tensor * Qcur = ggml_rope_custom(ctx0, tmpq, KQ_pos, n_embd_head, 2, 0, freq_base, freq_scale);
-            // offload_func_kq(Qcur);
-            // struct ggml_tensor * Kcur = ggml_rope_custom(ctx0, tmpk, KQ_pos, n_embd_head, 2, 0, freq_base, freq_scale);
+            // struct ggml_tensor * tmpv = ggml_cont(ctx0, ggml_view_3d(
+            //     ctx0, cur, n_embd_head, n_head_kv, n_tokens,
+            //     wsize * n_embd_head,
+            //     wsize * n_embd_head * (n_head + 2 * n_head_kv),
+            //     wsize * n_embd_head * (n_head +     n_head_kv)));
+            // offload_func_v(tmpv);
 
 
-            struct ggml_tensor * Kcur;
-            struct ggml_tensor * Qcur;
-            tmpk = ggml_rope_custom_inplace(ctx0, ggml_view_3d(ctx0, tmpk, n_rot, n_head_kv, n_tokens, tmpk->nb[1], tmpk->nb[2], 0), KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
-            tmpq = ggml_rope_custom_inplace(ctx0, ggml_view_3d(ctx0, tmpq, n_rot, n_head, n_tokens, tmpq->nb[1], tmpq->nb[2], 0),    KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
 
-            tmpk = ggml_view_3d(ctx0, tmpk, n_embd_head, n_head_kv, n_tokens, tmpk->nb[1], tmpk->nb[2], 0);
-            tmpq = ggml_view_3d(ctx0, tmpq, n_embd_head, n_head, n_tokens, tmpq->nb[1], tmpq->nb[2], 0);
+            // // struct ggml_tensor * Qcur = ggml_rope_custom(ctx0, tmpq, KQ_pos, n_embd_head, 2, 0, freq_base, freq_scale);
+            // // offload_func_kq(Qcur);
+            // // struct ggml_tensor * Kcur = ggml_rope_custom(ctx0, tmpk, KQ_pos, n_embd_head, 2, 0, freq_base, freq_scale);
 
-            Kcur = ggml_reshape_3d(ctx0, tmpk, n_embd_head, n_head_kv, n_tokens);
-            Qcur = ggml_reshape_3d(ctx0, tmpq, n_embd_head, n_head, n_tokens);
+            // struct ggml_tensor * Kcur;
+            // struct ggml_tensor * Qcur;
+            // tmpk = ggml_rope_custom_inplace(ctx0, ggml_view_3d(ctx0, tmpk, n_rot, n_head_kv, n_tokens, tmpk->nb[1], tmpk->nb[2], 0), KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
+            // tmpq = ggml_rope_custom_inplace(ctx0, ggml_view_3d(ctx0, tmpq, n_rot, n_head, n_tokens, tmpq->nb[1], tmpq->nb[2], 0),    KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
 
-            struct ggml_tensor * Vcur = ggml_transpose(ctx0, ggml_reshape_2d(ctx0, tmpv, n_embd_gqa, n_tokens));
+            // tmpk = ggml_view_3d(ctx0, tmpk, n_embd_head, n_head_kv, n_tokens, tmpk->nb[1], tmpk->nb[2], 0);
+            // tmpq = ggml_view_3d(ctx0, tmpq, n_embd_head, n_head, n_tokens, tmpq->nb[1], tmpq->nb[2], 0);
+
+            // Kcur = ggml_reshape_3d(ctx0, tmpk, n_embd_head, n_head_kv, n_tokens);
+            // Qcur = ggml_reshape_3d(ctx0, tmpq, n_embd_head, n_head, n_tokens);
+
+            // struct ggml_tensor * Vcur = ggml_transpose(ctx0, ggml_reshape_2d(ctx0, tmpv, n_embd_gqa, n_tokens));
+
+
+            struct ggml_tensor* tmpq = ggml_rope_custom_inplace(
+                ctx0, ggml_view_3d(ctx0, cur, n_rot, n_head, n_tokens, wsize * n_embd_head, wsize * n_embd_head * (n_head + 2 * n_head_kv), 0), KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
+
+            struct ggml_tensor* tmpk = ggml_rope_custom_inplace(
+                ctx0, ggml_view_3d(ctx0, cur, n_rot, n_head_kv, n_tokens, wsize * n_embd_head, wsize * n_embd_head * (n_head + 2 * n_head_kv), wsize * n_embd_head * n_head), KQ_pos, n_rot, 0, 0, freq_base, freq_scale);
+
+            // ggml_build_forward_expand(gf, tmpk);
+            // ggml_build_forward_expand(gf, tmpq);
+
+            struct ggml_tensor* Qcur = ggml_view_3d(
+                ctx0, tmpq, n_embd_head, n_head, n_tokens, wsize * n_embd_head, wsize * n_embd_head * (n_head + 2 * n_head_kv), 0);
+
+            struct ggml_tensor* Kcur = ggml_view_3d(
+                ctx0, tmpk, n_embd_head, n_head_kv, n_tokens, wsize * n_embd_head, wsize * n_embd_head * (n_head + 2 * n_head_kv), 0);
+
+            struct ggml_tensor* Vcur = ggml_transpose(ctx0,
+                ggml_view_2d(ctx0, cur, n_embd_gqa, n_tokens, wsize * n_embd_head * (n_head + 2 * n_head_kv), wsize * n_embd_head * (n_head + n_head_kv))
+            );
 
             offload_func_kq(Kcur);
             ggml_set_name(Kcur, "Kcur");
